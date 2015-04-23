@@ -63,21 +63,10 @@ img {
 <h1 class="title">Storm Data</h1>
 </div>
 
-<div id="TOC">
-<ul>
-<li><a href="#synopsis">Synopsis</a></li>
-<li><a href="#data-processing">Data Processing</a></li>
-<li><a href="#results">Results</a></li>
-</ul>
-</div>
 
 <div id="synopsis" class="section level2">
 <h2>Synopsis</h2>
-<p>The purpose of this analysis is to help answer the following questions:</p>
-<ul>
-<li><p>Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?</p></li>
-<li><p>Across the United States, which types of events have the greatest economic consequences?</p></li>
-</ul>
+<p>The purpose of this analysis is to help answer the following questions: * Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health? * Across the United States, which types of events have the greatest economic consequences?</p>
 </div>
 <div id="data-processing" class="section level2">
 <h2>Data Processing</h2>
@@ -85,7 +74,9 @@ img {
 <p><a href="https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf">National Climatic Data Center Storm Events FAQ</a></p>
 <pre class="r"><code># loading all required libraries
 library(tools)
-
+library(ggplot2)
+library(plyr)
+library(stringr)
 
 # file information (downloaded on 4/21/2015 3:20 PM CDT)
 filelink &lt;- &quot;https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2&quot;
@@ -99,7 +90,52 @@ if (!file.exists(filename)|md5sum(filename) != filechecksum) {
         }         
 
 # read in data file
-#sd &lt;- read.csv(bzfile(filename))</code></pre>
+#sd &lt;- read.csv(bzfile(filename))
+
+# function to clean up and stanardize event types
+clean.EVTYPE &lt;- function(x){
+        library(stringr)
+        
+        # remove spaces before and after
+        new.EVTYPE &lt;- str_trim(x, side=&quot;both&quot;)
+        
+        # change to upper case
+        new.EVTYPE &lt;- toupper(new.EVTYPE)
+        
+        # remove misc punctuation
+        new.EVTYPE &lt;- sub(&quot;\\.$&quot;, &quot;&quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot;\\(&quot;, &quot; &quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot;)$&quot;, &quot;&quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot;;$&quot;, &quot;&quot;, new.EVTYPE)
+        
+        # remove all double spaces within value
+        while(length(grep(&quot;  &quot;, new.EVTYPE)) &gt; 0){new.EVTYPE &lt;- sub(&quot;  &quot;, &quot; &quot;, new.EVTYPE)}
+  
+        # remove spaces before and after slashes and stanardize them
+        new.EVTYPE &lt;- sub(&quot;-&quot;, &quot;/&quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot;;&quot;, &quot;/&quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot;\\\\&quot;, &quot;/&quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot;/ &quot;, &quot;/&quot;, new.EVTYPE)
+        new.EVTYPE &lt;- sub(&quot; /&quot;, &quot;/&quot;, new.EVTYPE)
+
+        return(new.EVTYPE)
+
+}</code></pre>
+<pre class="r"><code># sdh &lt;- ddply(sd, c(&quot;EVTYPE&quot;), summarize, INJ_FAT = sum(INJURIES + FATALITIES))
+# sdh &lt;- subset(sdh, sdh$INJ_FAT != 0)
+# sdh$EVTYPE &lt;- clean.EVTYPE(sdh$EVTYPE)
+# sdh &lt;- ddply(sdh, c(&quot;EVTYPE&quot;), summarize, INJ_FAT = sum(INJ_FAT))
+# sdh$ranking &lt;- rank(-sdh$INJ_FAT, ties.method = &quot;first&quot;)
+# 
+# sdh_10 &lt;- head(sdh[with(sdh, order(-INJ_FAT, EVTYPE)),], 10)
+# sdh_p &lt;- ggplot(sdh_10, 
+#                 aes(x=factor(EVTYPE),
+#                     y=INJ_FAT)
+#                 )+
+#         geom_bar(stat=&quot;identity&quot;) +
+#         theme(axis.text.x = element_text(angle= 90,
+#                                           hjust = 1)
+#               )</code></pre>
 </div>
 <div id="results" class="section level2">
 <h2>Results</h2>

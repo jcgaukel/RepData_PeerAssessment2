@@ -27,35 +27,97 @@ The purpose of this analysis is to help answer the following questions:
 # loading all required libraries
 library(tools)
 library(ggplot2)
+library(plyr)
+library(stringr)
+library("R.utils")
 
 # file information (downloaded on 4/21/2015 3:20 PM CDT)
 filelink <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 filename <- "repdata_data_StormData.csv.bz2"
 filechecksum <- "df4aa61fff89427db6b7f7b1113b5553"  
+extractedfile <- "Extracted Data/repdata_data_StormData.csv"
+extractedfilechecksum <- "33ab0bd27d935eeefef0dd7300f800af"
 
 # check to see if file is missing or checksum has changed 
 if (!file.exists(filename)|md5sum(filename) != filechecksum) {
         # download the file.
         download.file(filelink, filename)
-        }         
+        }
+
+# check to see if the extracted file exists or the checksum doesn't match
+if (!file.exists(extractedfile) | md5sum(extractedfile) != extractedfilechecksum) {
+        # extract file
+        bunzip2(filename = filename, destname = extractedfile)
+}
 
 # read in data file
-sd <- read.csv(bzfile(filename))
+# sd <- read.csv(bzfile(filename))
+sd <- read.csv(extractedfile)        
+
+
+# function to clean up and stanardize event types
+clean.EVTYPE <- function(x){
+        library(stringr)
+        
+        # remove spaces before and after
+        new.EVTYPE <- str_trim(x, side="both")
+        
+        # change to upper case
+        new.EVTYPE <- toupper(new.EVTYPE)
+        
+        # remove misc punctuation
+        new.EVTYPE <- sub("\\.$", "", new.EVTYPE)
+        new.EVTYPE <- sub("\\(", " ", new.EVTYPE)
+        new.EVTYPE <- sub(")$", "", new.EVTYPE)
+        new.EVTYPE <- sub(";$", "", new.EVTYPE)
+        
+        # remove all double spaces within value
+        while(length(grep("  ", new.EVTYPE)) > 0){new.EVTYPE <- sub("  ", " ", new.EVTYPE)}
+  
+        # remove spaces before and after slashes and stanardize them
+        new.EVTYPE <- sub("-", "/", new.EVTYPE)
+        new.EVTYPE <- sub(";", "/", new.EVTYPE)
+        new.EVTYPE <- sub("\\\\", "/", new.EVTYPE)
+        new.EVTYPE <- sub("/ ", "/", new.EVTYPE)
+        new.EVTYPE <- sub(" /", "/", new.EVTYPE)
+
+        return(new.EVTYPE)
+
+}
 
 ```
 
 ```{r health_impact}
+# summarize the data by event type
 sdh <- ddply(sd, c("EVTYPE"), summarize, INJ_FAT = sum(INJURIES + FATALITIES))
+
+# remove any items where no one was injured or killed
+sdh <- subset(sdh, sdh$INJ_FAT != 0)
+
+# clean up remaining event types
+sdh$EVTYPE <- clean.EVTYPE(sdh$EVTYPE)
+
+# resummarize on cleaned up event types
+sdh <- ddply(sdh, c("EVTYPE"), summarize, INJ_FAT = sum(INJ_FAT))
+
+# grab top 10 event types
 sdh_10 <- head(sdh[with(sdh, order(-INJ_FAT, EVTYPE)),], 10)
-sdh_p <- ggplot(sdh_10, 
-                aes(x=factor(EVTYPE),
-                    y=INJ_FAT)
-                )+
+
+# plot them
+ggplot(sdh_10, 
+       aes(reorder(x=factor(EVTYPE), 
+                   -INJ_FAT
+                   ),
+           y=INJ_FAT
+           )
+       ) +
         geom_bar(stat="identity") +
         theme(axis.text.x = element_text(angle= 90,
-                                          hjust = 1)
-              )
-
+                                         hjust = 1)
+              ) +
+        labs(title = "Top Weather Events Causing Injuries and/or Fatalities",
+             x = "Weather Event Type",
+             y = "Number of Injuries and/or Fatalities")
 ```
 
 
