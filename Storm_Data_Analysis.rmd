@@ -48,17 +48,120 @@ if (!file.exists(filename)|md5sum(filename) != filechecksum) {
 if (!file.exists(extractedfile) | md5sum(extractedfile) != extractedfilechecksum) {
         # extract file
         bunzip2(filename = filename, destname = extractedfile)
-}
+        }
 
 # read in data file
 # sd <- read.csv(bzfile(filename))
-sd <- read.csv(extractedfile)        
+#sd <- read.csv(extractedfile)        
 
 
-# function to clean up and stanardize event types
+# functions to validate, and clean up / stanardize event types
+# keep this for debugging.
+check.EVTYPE <- function(x){
+        valid.EVTYPE <- c("ASTRONOMICAL LOW TIDE",
+                          "AVALANCHE",
+                          "BLIZZARD",
+                          "COASTAL FLOOD",
+                          "COLD/WIND CHILL",
+                          "DEBRIS FLOW",
+                          "DENSE FOG",
+                          "DENSE SMOKE",
+                          "DROUGHT",
+                          "DUST DEVIL",
+                          "DUST STORM",
+                          "EXCESSIVE HEAT",
+                          "EXTREME COLD/WIND CHILL",
+                          "FLASH FLOOD",
+                          "FLOOD",
+                          "FROST/FREEZE",
+                          "FUNNEL CLOUD",
+                          "FREEZING FOG",
+                          "HAIL",
+                          "HEAT",
+                          "HEAVY RAIN",
+                          "HEAVY SNOW",
+                          "HIGH SURF",
+                          "HIGH WIND",
+                          "HURRICANE (TYPHOON)",
+                          "ICE STORM",
+                          "LAKE-EFFECT SNOW",
+                          "LAKESHORE FLOOD",
+                          "LIGHTNING",
+                          "MARINE HAIL",
+                          "MARINE HIGH WIND",
+                          "MARINE STRONG WIND",
+                          "MARINE THUNDERSTORM WIND",
+                          "RIP CURRENT",
+                          "SEICHE",
+                          "SLEET",
+                          "STORM SURGE/TIDE",
+                          "STRONG WIND",
+                          "THUNDERSTORM WIND",
+                          "TORNADO",
+                          "TROPICAL DEPRESSION",
+                          "TROPICAL STORM",
+                          "TSUNAMI",
+                          "VOLCANIC ASH",
+                          "WATERSPOUT",
+                          "WILDFIRE",
+                          "WINTER STORM",
+                          "WINTER WEATHER")
+        
+        return(match(x, valid.EVTYPE, nomatch = 0))
+        }
+        
+        
 clean.EVTYPE <- function(x){
         library(stringr)
-        
+        valid.EVTYPE <- c("ASTRONOMICAL LOW TIDE",
+                          "AVALANCHE",
+                          "BLIZZARD",
+                          "COASTAL FLOOD",
+                          "COLD/WIND CHILL",
+                          "DEBRIS FLOW",
+                          "DENSE FOG",
+                          "DENSE SMOKE",
+                          "DROUGHT",
+                          "DUST DEVIL",
+                          "DUST STORM",
+                          "EXCESSIVE HEAT",
+                          "EXTREME COLD/WIND CHILL",
+                          "FLASH FLOOD",
+                          "FLOOD",
+                          "FROST/FREEZE",
+                          "FUNNEL CLOUD",
+                          "FREEZING FOG",
+                          "HAIL",
+                          "HEAT",
+                          "HEAVY RAIN",
+                          "HEAVY SNOW",
+                          "HIGH SURF",
+                          "HIGH WIND",
+                          "HURRICANE (TYPHOON)",
+                          "ICE STORM",
+                          "LAKE-EFFECT SNOW",
+                          "LAKESHORE FLOOD",
+                          "LIGHTNING",
+                          "MARINE HAIL",
+                          "MARINE HIGH WIND",
+                          "MARINE STRONG WIND",
+                          "MARINE THUNDERSTORM WIND",
+                          "RIP CURRENT",
+                          "SEICHE",
+                          "SLEET",
+                          "STORM SURGE/TIDE",
+                          "STRONG WIND",
+                          "THUNDERSTORM WIND",
+                          "TORNADO",
+                          "TROPICAL DEPRESSION",
+                          "TROPICAL STORM",
+                          "TSUNAMI",
+                          "VOLCANIC ASH",
+                          "WATERSPOUT",
+                          "WILDFIRE",
+                          "WINTER STORM",
+                          "WINTER WEATHER")
+
         # remove spaces before and after
         new.EVTYPE <- str_trim(x, side="both")
         
@@ -67,25 +170,78 @@ clean.EVTYPE <- function(x){
         
         # remove misc punctuation
         new.EVTYPE <- sub("\\.$", "", new.EVTYPE)
-        new.EVTYPE <- sub("\\(", " ", new.EVTYPE)
-        new.EVTYPE <- sub(")$", "", new.EVTYPE)
         new.EVTYPE <- sub(";$", "", new.EVTYPE)
+        
+        new.EVTYPE <- sub("\\(", " ", new.EVTYPE) # note: this will break "HURRICANE (TYPHOON)", but we fix it later
+        new.EVTYPE <- sub(")$", "", new.EVTYPE)   # note: this will break "HURRICANE (TYPHOON)", but we fix it later
+        
         
         # remove all double spaces within value
         while(length(grep("  ", new.EVTYPE)) > 0){new.EVTYPE <- sub("  ", " ", new.EVTYPE)}
-  
+        
         # remove spaces before and after slashes and stanardize them
         new.EVTYPE <- sub("-", "/", new.EVTYPE)
         new.EVTYPE <- sub(";", "/", new.EVTYPE)
         new.EVTYPE <- sub("\\\\", "/", new.EVTYPE)
         new.EVTYPE <- sub("/ ", "/", new.EVTYPE)
         new.EVTYPE <- sub(" /", "/", new.EVTYPE)
+        
+        # replace abbreviations
+        new.EVTYPE <- sub("TSTM ", "THUNDERSTORM ", new.EVTYPE)
+        
+        # fix typos
+        new.EVTYPE <- sub("^AVALANCE$", "AVALANCHE", new.EVTYPE)
+        new.EVTYPE <- sub("THUNDERTORM", "THUNDERSTORM", new.EVTYPE)
+        new.EVTYPE <- sub("^THUNDERSTORMW$", "THUNDERSTORM", new.EVTYPE)
+        
+        # remove plurals
+        new.EVTYPE <- sub("CURRENTS$", "CURRENT", new.EVTYPE)
+        new.EVTYPE <- sub("WINDS$", "WIND", new.EVTYPE)
+        new.EVTYPE <- sub("STORMS", "STORM", new.EVTYPE)
 
+        # coerce into standard event types
+        #new.EVTYPE <- sub("^$", "", new.EVTYPE)
+        new.EVTYPE <- sub("^COLD$", "COLD/WIND CHILL", new.EVTYPE)
+        new.EVTYPE <- sub("^EXTREME COLD$", "EXTREME COLD/WIND CHILL", new.EVTYPE)
+        new.EVTYPE <- sub("^EXTREME HEAT$", "EXCESSIVE HEAT", new.EVTYPE)
+        new.EVTYPE <- sub("^FLASH FLOODING$", "FLASH FLOOD", new.EVTYPE)
+        new.EVTYPE <- sub("^FOG$", "DENSE FOG", new.EVTYPE)
+        new.EVTYPE <- sub("^GUSTY WIND$", "STRONG WIND", new.EVTYPE)
+        new.EVTYPE <- sub("^HEAT WAVE$", "HEAT", new.EVTYPE)
+        new.EVTYPE <- sub("^HEAVY SNOW AND HIGH WINDS$", "BLIZZARD", new.EVTYPE)
+        new.EVTYPE <- sub("^HEAVY SURF/HIGH SURF$", "HIGH SURF", new.EVTYPE)
+        new.EVTYPE <- sub("^HEAVY SURF$", "HIGH SURF", new.EVTYPE)
+        new.EVTYPE <- sub("^HURRICANE .*$", "HURRICANE (TYPHOON)", new.EVTYPE)
+        new.EVTYPE <- sub("^HURRICANE/TYPHOON$", "HURRICANE (TYPHOON)", new.EVTYPE)
+        new.EVTYPE <- sub("^HURRICANE$", "HURRICANE (TYPHOON)", new.EVTYPE)
+        new.EVTYPE <- sub("^ICE$", "ICE STORM", new.EVTYPE)
+        new.EVTYPE <- sub("^LIGHTNING", "LIGHTNING", new.EVTYPE)
+        new.EVTYPE <- sub("^STORM SURGE$", "STORM SURGE/TIDE", new.EVTYPE)
+        new.EVTYPE <- sub("^THUNDERSTORM$", "THUNDERSTORM WIND", new.EVTYPE)
+        new.EVTYPE <- sub("^THUNDERSTORM WIND.*$", "THUNDERSTORM WIND", new.EVTYPE)
+        new.EVTYPE <- sub("^TROPICAL STORM GORDON$", "TROPICAL STORM", new.EVTYPE)
+        new.EVTYPE <- sub("^WATERSPOUT/TORNADO$", "TORNADO", new.EVTYPE)
+        new.EVTYPE <- sub("^WILD FIRES$", "WILDFIRE", new.EVTYPE)
+        new.EVTYPE <- sub("^WILD/FOREST FIRE$", "WILDFIRE", new.EVTYPE)
+        new.EVTYPE <- sub("^WINTER WEATHER MIX$", "WINTER WEATHER", new.EVTYPE)
+        new.EVTYPE <- sub("^WINTER WEATHER/MIX$", "WINTER WEATHER", new.EVTYPE)
+        new.EVTYPE <- sub("^WINTRY MIX$", "WINTER WEATHER", new.EVTYPE)
+        
+        # anything that isn't matched gets lumped together as "UNKNOWN/OTHER"
+        missing.EVTYPE <- !(new.EVTYPE %in% valid.EVTYPE)
+        
+        for (i in 1:length(new.EVTYPE)) {
+                if(missing.EVTYPE[i] == TRUE) new.EVTYPE[i] <- "UNKNOWN/OTHER"
+                }
+        
         return(new.EVTYPE)
-
-}
+        
+        }
 
 ```
+
+## Results
+### Health Impact
 
 ```{r health_impact}
 # summarize the data by event type
@@ -96,9 +252,14 @@ sdh <- subset(sdh, sdh$INJ_FAT != 0)
 
 # clean up remaining event types
 sdh$EVTYPE <- clean.EVTYPE(sdh$EVTYPE)
+#sdh$new.EVTYPE <- clean.EVTYPE(sdh$EVTYPE) # for debugging
 
 # resummarize on cleaned up event types
 sdh <- ddply(sdh, c("EVTYPE"), summarize, INJ_FAT = sum(INJ_FAT))
+
+# for debugging
+# sdh$match <- check.EVTYPE(sdh$new.EVTYPE)
+# write.csv(sdh, "sdh.csv")
 
 # grab top 10 event types
 sdh_10 <- head(sdh[with(sdh, order(-INJ_FAT, EVTYPE)),], 10)
@@ -120,7 +281,7 @@ ggplot(sdh_10,
              y = "Number of Injuries and/or Fatalities")
 ```
 
-
+### Ecomnomic Impact
 ```{r economic_impact}
 
 

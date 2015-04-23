@@ -33,3 +33,6 @@ clean.EVTYPE <- function(x){
 }
 
 EVT$NEW.EVTYPE <- clean.EVTYPE(EVT$EVTYPE)
+
+
+
