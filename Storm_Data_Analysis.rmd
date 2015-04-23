@@ -23,13 +23,13 @@ The purpose of this analysis is to help answer the following questions:
 
 [National Climatic Data Center Storm Events FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
 
-```{r load_and_preprocess, cache=TRUE}
+```{r load_and_preprocess, cache=FALSE}
 # loading all required libraries
 library(tools)
 library(ggplot2)
 library(plyr)
 library(stringr)
-library("R.utils")
+library(R.utils)
 
 # file information (downloaded on 4/21/2015 3:20 PM CDT)
 filelink <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
