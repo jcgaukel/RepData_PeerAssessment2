@@ -1,29 +1,43 @@
 ---
-title: "Storm Data"
-output: html_document
-keep_md: yes
-pdf_document: default
-word_document: default
+title: "Health and Economic Effects of Storms in the United States"
+author: "J.C. Gaukel"
+date: "April 26, 2015"
+output:
+  html_document:
+    highlight: haddock
+    keep_md: yes
+    theme: cerulean
+    toc: yes
+  pdf_document: default
+  word_document: default
+subtitle: Reproducible Research Assignment 2
 ---
 
 ```{r setup, include = FALSE}
 library(knitr)
-opts_chunk$set(message=FALSE, warning=FALSE, fig.width = 12)
+opts_chunk$set(message=FALSE, warning=FALSE, fig.width = 12, fig.height = 8)
 ```
 
 ## Synopsis
 The purpose of this analysis is to help answer the following questions:
+
 * Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
 * Across the United States, which types of events have the greatest economic consequences?
+
+This analysis uses storm data gathered from 1950 through November 2011.  The data is coerced (as much as is practical) into the weather categories defined by the National Weather Service.
 
 
 ## Data Processing
+The data used can be downloaded from https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2.  Additional information can be gathered from: 
 
-[National Weather Service Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+* [National Weather Service Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
 
-[National Climatic Data Center Storm Events FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+* [National Climatic Data Center Storm Events FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
 
-```{r load_and_preprocess, cache=FALSE}
+The following code will check to see if the file exists and if it has the correct check sum.  If it doesn't then it will download it.  It then checks for the extracted file and it's check sum.  If it doesn't exist or the check sum doesn't match, then it extracts it.  Then it loads the data.
+
+```{r load_libraries}
 # loading ALL required libraries
 library(tools)
 library(ggplot2)
@@ -32,7 +46,9 @@ library(plyr)
 library(stringr)
 library(R.utils)
 library(sqldf)
+```
 
+```{r load_and_preprocess_data}
 # file information (downloaded on 4/21/2015 3:20 PM CDT)
 filelink <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 filename <- "repdata_data_StormData.csv.bz2"
@@ -53,13 +69,16 @@ if (!file.exists(extractedfile) | md5sum(extractedfile) != extractedfilechecksum
         }
 
 # read in data file
-# sd <- read.csv(bzfile(filename))
-#sd <- read.csv(extractedfile)        
+sd <- read.csv(extractedfile)        
+```
 
 
+The following function is used to normalize the storm event types as much as is practical.  (Event types that are either non-impactful or don't contribute significantly to the impact are grouped together under "UNKNOWN/OTHER".  Running the function the the debug option set to TRUE will leave them ungrouped.)
+```{r EVTYPE_transformation_function}
 # functions to normalize event types
 clean.EVTYPE <- function(x, debug=FALSE){
         library(stringr)
+        # these are the standard categories as defined by the National Weather Service
         valid.EVTYPE <- c("ASTRONOMICAL LOW TIDE",
                           "AVALANCHE",
                           "BLIZZARD",
@@ -121,7 +140,6 @@ clean.EVTYPE <- function(x, debug=FALSE){
         new.EVTYPE <- sub("\\(", " ", new.EVTYPE) # note: this will break "HURRICANE (TYPHOON)", but we fix it later
         new.EVTYPE <- sub(")$", "", new.EVTYPE)   # note: this will break "HURRICANE (TYPHOON)", but we fix it later
         
-        
         # remove all double spaces within value
         while(length(grep("  ", new.EVTYPE)) > 0){new.EVTYPE <- sub("  ", " ", new.EVTYPE)}
         
@@ -173,9 +191,7 @@ clean.EVTYPE <- function(x, debug=FALSE){
         new.EVTYPE <- sub("FIRES", "FIRE", new.EVTYPE)
         new.EVTYPE <- sub("TORNADOES", "TORNADO", new.EVTYPE)
 
-        # coerce into standard event types
-        # new.EVTYPE <- sub("^$", "", new.EVTYPE)
-        
+        # coerce into standard event types        
         ## BLIZZARD
         new.EVTYPE <- sub("^HEAVY SNOW AND HIGH WINDS$", "BLIZZARD", new.EVTYPE)
         
@@ -272,9 +288,7 @@ clean.EVTYPE <- function(x, debug=FALSE){
         new.EVTYPE <- sub("^WINTER WEATHER MIX$", "WINTER WEATHER", new.EVTYPE)
         new.EVTYPE <- sub("^WINTER WEATHER/MIX$", "WINTER WEATHER", new.EVTYPE)
         new.EVTYPE <- sub("^WINTRY MIX$", "WINTER WEATHER", new.EVTYPE)
-        
-        
-        
+
         ## anything that isn't matched gets lumped together as "UNKNOWN/OTHER"
         if(!debug){
                 missing.EVTYPE <- !(new.EVTYPE %in% valid.EVTYPE)
@@ -290,9 +304,24 @@ clean.EVTYPE <- function(x, debug=FALSE){
         }
 
 ```
+The following code defines theme element formatting shared between plots.
+```{r plotting_code}
+# create common theme to use for plots
+mytheme <- theme(title = element_text(color='gray35',
+                                      size = 14),
+                 plot.title = element_text(size=16)
+                 )
+```
+
+
 
 ## Results
+The following sections show both the greatest Health and Economic impacting weather events.
+
+
+
 ### Health Impact
+The weather events that are the most impactful to health are the ones that cause the most injuries and fatalities combined.
 
 ```{r health_impact}
 # summarize the data by event type
@@ -318,16 +347,22 @@ ggplot(sdh_10,
            y=INJ_FAT
            )
        ) +
-        geom_bar(stat="identity") +
+        geom_bar(stat="identity", 
+                 colour = "dodgerblue3",
+                 fill = "dodgerblue3") +
         theme(axis.text.x = element_text(angle= 90,
                                          hjust = 1)
               ) +
         labs(title = "Top 10 Weather Events Causing Injuries and/or Fatalities",
              x = "Weather Event Type",
-             y = "Number of Injuries and/or Fatalities")
+             y = "Number of Injuries and/or Fatalities") + 
+        mytheme
 ```
+By far, the type of weather event that has caused the most injuries and fatalities over the given time period is Tornadoes.
+
 
 ### Ecomnomic Impact
+The weather events that are the most impactful economically are the ones that cause the most property and crop damage (in dollars) combined.
 ```{r economic_impact}
 # start pulling out just the needed columns
 sde <- subset(sd, select=c(EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP))
@@ -367,23 +402,17 @@ ggplot(sde_10,
            y=TOTAL_DMG/10^6
            )
        ) +
-        geom_bar(stat="identity") +
+        geom_bar(stat="identity",
+                 colour = "dodgerblue3",
+                 fill = "dodgerblue3") +
         theme(axis.text.x = element_text(angle= 90,
                                          hjust = 1)
               ) +
         labs(title = "Top 10 Weather Events Causing Property and/or Crop Damage",
              x = "Weather Event Type",
-             y = "Property and/or Crop Damage (in millions of dollars")
+             y = "Property and/or Crop Damage (in millions of dollars") +
+        mytheme
 
 ```
-
-
-
-## Results
-
-
-
-
-
-
+The type of weather event that has caused the most property damage and / or crop damage over the given time period is Floods.
 
