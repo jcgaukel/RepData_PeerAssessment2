@@ -54,8 +54,7 @@ if (!file.exists(extractedfile) | md5sum(extractedfile) != extractedfilechecksum
 
 # read in data file
 # sd <- read.csv(bzfile(filename))
-#sd <- read.csv(extractedfile)        
-
+sd <- read.csv(extractedfile)        
 
 # functions to normalize event types
 clean.EVTYPE <- function(x, debug=FALSE){
@@ -121,7 +120,6 @@ clean.EVTYPE <- function(x, debug=FALSE){
         new.EVTYPE <- sub("\\(", " ", new.EVTYPE) # note: this will break "HURRICANE (TYPHOON)", but we fix it later
         new.EVTYPE <- sub(")$", "", new.EVTYPE)   # note: this will break "HURRICANE (TYPHOON)", but we fix it later
         
-        
         # remove all double spaces within value
         while(length(grep("  ", new.EVTYPE)) > 0){new.EVTYPE <- sub("  ", " ", new.EVTYPE)}
         
@@ -173,9 +171,7 @@ clean.EVTYPE <- function(x, debug=FALSE){
         new.EVTYPE <- sub("FIRES", "FIRE", new.EVTYPE)
         new.EVTYPE <- sub("TORNADOES", "TORNADO", new.EVTYPE)
 
-        # coerce into standard event types
-        # new.EVTYPE <- sub("^$", "", new.EVTYPE)
-        
+        # coerce into standard event types        
         ## BLIZZARD
         new.EVTYPE <- sub("^HEAVY SNOW AND HIGH WINDS$", "BLIZZARD", new.EVTYPE)
         
@@ -273,8 +269,6 @@ clean.EVTYPE <- function(x, debug=FALSE){
         new.EVTYPE <- sub("^WINTER WEATHER/MIX$", "WINTER WEATHER", new.EVTYPE)
         new.EVTYPE <- sub("^WINTRY MIX$", "WINTER WEATHER", new.EVTYPE)
         
-        
-        
         ## anything that isn't matched gets lumped together as "UNKNOWN/OTHER"
         if(!debug){
                 missing.EVTYPE <- !(new.EVTYPE %in% valid.EVTYPE)
@@ -282,13 +276,11 @@ clean.EVTYPE <- function(x, debug=FALSE){
                 for (i in 1:length(new.EVTYPE)) {
                         if(missing.EVTYPE[i] == TRUE) new.EVTYPE[i] <- "UNKNOWN/OTHER"
                         }
-
                 }
-     
+        
         return(new.EVTYPE)
         
         }
-
 ```
 
 ## Results
@@ -340,14 +332,20 @@ sde$CROPDMGEXP <- toupper(sde$CROPDMGEXP)
 valid_EXP <- data.frame(cbind(EXP_values = c("K", "M", "B"), EXP_mulitpliers = c(10^3, 10^6, 10^9)))
 
 # this query pulls in the multiplier value
-sql.1 <- "select EVTYPE, PROPDMG, PROPDMGEXP, COALESCE(PEXP.EXP_mulitpliers, 0) PEXP_mulitplier, CROPDMG, CROPDMGEXP, COALESCE(CEXP.EXP_mulitpliers, 0) CEXP_mulitplier"
+# sql.1 <- "select EVTYPE, PROPDMG, PROPDMGEXP, COALESCE(PEXP.EXP_mulitpliers, 0) PEXP_mulitplier, CROPDMG, CROPDMGEXP, COALESCE(CEXP.EXP_mulitpliers, 0) CEXP_mulitplier"
+# sql.1 <- paste(sql.1, " from sde left outer join valid_EXP PEXP on sde.PROPDMGEXP = PEXP.EXP_values")
+# sql.1 <- paste(sql.1, " left outer join valid_EXP CEXP on sde.CROPDMGEXP = CEXP.EXP_values")
+sql.1 <- "select EVTYPE, ((PROPDMG * COALESCE(PEXP.EXP_mulitpliers, 0)) + (CROPDMG * COALESCE(CEXP.EXP_mulitpliers, 0))) TOTAL_DMG"
 sql.1 <- paste(sql.1, " from sde left outer join valid_EXP PEXP on sde.PROPDMGEXP = PEXP.EXP_values")
 sql.1 <- paste(sql.1, " left outer join valid_EXP CEXP on sde.CROPDMGEXP = CEXP.EXP_values")
+
 sde <- sqldf(sql.1)
 
 # calculate the total damage
-sql.2 <- "select EVTYPE, ((PROPDMG * PEXP_mulitplier) + (CROPDMG * CEXP_mulitplier)) TOTAL_DMG from sde"
-sde <- sqldf(sql.2)
+# sql.2 <- "select EVTYPE, ((PROPDMG * PEXP_mulitplier) + (CROPDMG * CEXP_mulitplier)) TOTAL_DMG from sde"
+# sde <- sqldf(sql.2)
+
+# remove any items where no damage was calculated
 sde <- subset(sde, sde$TOTAL_DMG > 0)
 
 # clean up remaining event types
